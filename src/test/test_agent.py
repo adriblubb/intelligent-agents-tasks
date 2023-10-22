@@ -16,11 +16,11 @@ async def main():
 
 	# create two visitors (each awaiting a "Moin")
 	visitor1 = VisitorAgent("bidder1@localhost", "bidder1")
-	visitor1.set("name", "Otto")
+	visitor1.set("name", "Janine")
 	await visitor1.start()
 
 	visitor2 = VisitorAgent("bidder2@localhost", "bidder2")
-	visitor2.set("name", "Heinz")
+	visitor2.set("name", "Karl")
 	await visitor2.start()
 
 	# create one agent saying "Moin" to all visitors
