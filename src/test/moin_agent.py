@@ -28,7 +28,7 @@ class SayMoinState(State):
 
 		for count,visitor in enumerate(self.agent.get("visitors")):
 			msg = Message(to=visitor)
-			msg.body = "Buongiorno Visitor" + str(count)
+			msg.body = "Moin Visitor" + str(count)
 
 			await self.send(msg)
 		
