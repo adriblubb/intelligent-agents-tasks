@@ -21,13 +21,15 @@ async def main():
 	# declaring names and ids
 	bidder1.set("name", "Janine")
 	bidder1.set("id", 1)
+	bidder1.set("initialBids", 10)
 	bidder1.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
 	bidder1.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
 
 	bidder2.set("name", "June")
 	bidder2.set("id", 2)
+	bidder2.set("initialBids", 10)
 	bidder2.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
-	bidder1.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
+	bidder2.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
 
 	# reference bidders
 	auctioneer.set("name", "Fred")
@@ -35,7 +37,7 @@ async def main():
 	auctioneer.set("id", 3)
 	auctioneer.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
 	auctioneer.set("articles_agent_can_sell", selltxt_mod)
-	print(selltxt_mod)
+	#print(selltxt_mod)
 
 	auctioneer.set("raw_articles", (Wikipedia(), open("exercise1/data/sell.txt", "r")))
 
