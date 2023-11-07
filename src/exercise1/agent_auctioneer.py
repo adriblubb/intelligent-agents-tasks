@@ -8,6 +8,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 import string
 import random
+import time
 # adding go ahead with auction state
 from src.utils.wikipedia import Wikipedia
 
@@ -18,6 +19,8 @@ STATE_DECLARE_WINNER = "STATE_DECLARE_WINNER"
 STATE_END = "STATE_END"
 STATE_AUCTION = "STATE_AUCTION"
 
+# list. list of rendered articles
+rendered_articles = []
 #list. list which will be filled in runtime
 articles_auction = []
 # integer, how many articles are auctioned
@@ -34,14 +37,22 @@ class AuctioneerStateMachine(FSMBehaviour):
     async def on_end(self):
         await self.agent.stop()
 
+    #returns titles
+    def getTitles(self):
+        return articles_auction
+
+    #return currently renderd articles
+    def getRenderedArticles(self):
+        return rendered_articles
+
     # returns list of *num_articles* headings, randomly chosen
-    def get_auction_titles(self, num_articles):
+    def create_auction_titles(self, num_articles):
         # prepare 3 wiki articles for the auction
         articles_agent_can_sell = self.agent.get("articles_agent_can_sell")
         # test print
-        str_articles_auction = str(articles_agent_can_sell[0:3])
         for article in range(num_articles):
             articles_auction.append(articles_agent_can_sell[random.randint(0, len(articles_agent_can_sell))])
+
         return articles_auction
 
     # turn wiki articles into td.idf input
@@ -73,19 +84,20 @@ class AuctioneerStateMachine(FSMBehaviour):
 
     def articles_rendered(self, titles):
         asm = AuctioneerStateMachine
-        rendered_articles = []
         for article in titles:
             rendered_articles.append(asm.render(self, Wikipedia.get(Wikipedia(), article)))
         return rendered_articles
 
 
 class StartAuctionState(State):
+
     async def run(self):
         asm = AuctioneerStateMachine
-        titles = asm.get_auction_titles(self, 3)
+        titles = asm.create_auction_titles(self, 3)
+        rendered_articles = asm.articles_rendered(self, titles)
         print(titles)
-        print("rendered first:")
-        print(asm.articles_rendered(self, titles)[1])
+        #print("rendered first:")
+        #print(asm.articles_rendered(self, titles)[1][1:200])
 
         # officially offering articles to bidders
         for count, bidder in enumerate(self.agent.get("bidders_list")):
@@ -93,15 +105,27 @@ class StartAuctionState(State):
             msg.body = "A: Welcome to the biggest Wiki-Auction in the world. We have the following titles to Sell: " \
                        + str(titles) + ". You can bid on each of the articles based on your choice."
             await self.send(msg)
-
-
-        msg = await self.receive(timeout=sys.float_info.max)
-        print("State: StartAuctionState, A: Got message '" + msg.body + " " + self.agent.get("name") + "'")
+        #msg3 = await self.receive(timeout=sys.float_info.max)
+        #print("State: StartAuctionState, A: Got message '" + msg3.body + " " + self.agent.get("name") + "'")
+        # Update the agent's data with the rendered articles
+        self.agent.set("rendered_articles", rendered_articles)
         self.set_next_state(STATE_MAKE_OFFER)
 
 class MakeOfferState(State):
     async def run(self):
         print("State: MakeOfferState. A: " + self.agent.get("name"))
+        asm = AuctioneerStateMachine
+        print("check")
+        #temp test
+        x = asm.getTitles(self)
+        articles = asm.getRenderedArticles(self)
+
+
+        for count, bidder in enumerate(self.agent.get("bidders_list")):
+            msg2 = Message(to=bidder)
+            print("current article being auctioned: "+ x[0])
+            msg2.body = str("msg2test"+str(articles[0]))
+            await self.send(msg2)
 
         self.set_next_state(STATE_ANALYZE_BID)
 

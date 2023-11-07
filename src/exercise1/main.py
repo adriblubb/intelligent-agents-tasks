@@ -21,12 +21,14 @@ async def main():
 	# declaring names and ids
 	bidder1.set("name", "Janine")
 	bidder1.set("id", 1)
+	bidder1.set("query", "motor")
 	bidder1.set("initialBids", 10)
 	bidder1.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
 	bidder1.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
 
 	bidder2.set("name", "June")
 	bidder2.set("id", 2)
+	bidder2.set("query", "car")
 	bidder2.set("initialBids", 10)
 	bidder2.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
 	bidder2.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
