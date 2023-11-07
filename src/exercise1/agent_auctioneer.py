@@ -7,6 +7,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 import string
+import random
 # adding go ahead with auction state
 from src.utils.wikipedia import Wikipedia
 
@@ -16,65 +17,83 @@ STATE_ANALYZE_BID = "STATE_ANALYZE_BID"
 STATE_DECLARE_WINNER = "STATE_DECLARE_WINNER"
 STATE_END = "STATE_END"
 STATE_AUCTION = "STATE_AUCTION"
-#nltk.download("punkt")
-#nltk.download("stopwords")
 
-def preprocess_text(text):
-    # Tokenize the text
-    tokens = word_tokenize(text)
+#list. list which will be filled in runtime
+articles_auction = []
+# integer, how many articles are auctioned
+num_auctioned_articles = 3
 
-    # Convert tokens to lowercase
-    tokens = [token.lower() for token in tokens]
 
-    # Remove punctuation from each token
-    tokens = [token for token in tokens if token not in string.punctuation]
 
-    # Filter out tokens that are not alphabetic
-    tokens = [token for token in tokens if token.isalpha()]
 
-    # Filter out stop words
-    stop_words = set(stopwords.words("english"))
-    tokens = [token for token in tokens if token not in stop_words]
-
-    # Stem words with PorterStemmer
-    stemmer = PorterStemmer()
-    tokens = [stemmer.stem(token) for token in tokens]
-
-    return tokens
 class AuctioneerStateMachine(FSMBehaviour):
     async def on_start(self):
+        # print(self.get_auction_articles(3))
         pass
+
     async def on_end(self):
         await self.agent.stop()
 
+    # returns list of *num_articles* headings, randomly chosen
+    def get_auction_titles(self, num_articles):
+        # prepare 3 wiki articles for the auction
+        articles_agent_can_sell = self.agent.get("articles_agent_can_sell")
+        # test print
+        str_articles_auction = str(articles_agent_can_sell[0:3])
+        for article in range(num_articles):
+            articles_auction.append(articles_agent_can_sell[random.randint(0, len(articles_agent_can_sell))])
+        return articles_auction
+
+    # turn wiki articles into td.idf input
+    def render(self, text):
+        # Tokenize the text
+        tokens = word_tokenize(text)
+
+        # Convert tokens to lowercase
+        tokens = [token.lower() for token in tokens]
+
+        # Remove punctuation from each token
+        tokens = [token for token in tokens if token not in string.punctuation]
+
+        # Filter out tokens that are not alphabetic
+        tokens = [token for token in tokens if token.isalpha()]
+
+        # Filter out stop words
+        stop_words = set(stopwords.words("english"))
+        tokens = [token for token in tokens if token not in stop_words]
+
+        # Stem words with PorterStemmer
+        stemmer = PorterStemmer()
+        tokens = [stemmer.stem(token) for token in tokens]
+
+        return tokens
+
+    def article_rendered(self, article):
+        return self.render(Wikipedia.get(Wikipedia(), article))
+
+    def articles_rendered(self, titles):
+        asm = AuctioneerStateMachine
+        rendered_articles = []
+        for article in titles:
+            rendered_articles.append(asm.render(self, Wikipedia.get(Wikipedia(), article)))
+        return rendered_articles
+
+
 class StartAuctionState(State):
     async def run(self):
-        articles_agent_can_sell = self.agent.get("articles_agent_can_sell")
-        example = str(articles_agent_can_sell[0:3])
-        i = 0
-        print(example)
-        print(articles_agent_can_sell[0])
-        print(Wikipedia.get(Wikipedia(), articles_agent_can_sell[0]))
-        print(preprocess_text(Wikipedia.get(Wikipedia(), articles_agent_can_sell[0])))
-        for token in preprocess_text(Wikipedia.get(Wikipedia(), articles_agent_can_sell[0])):
-            if token == "car":
-                i = i + 1
-        print(i)
-
-
-
+        asm = AuctioneerStateMachine
+        titles = asm.get_auction_titles(self, 3)
+        print(titles)
+        print("rendered first:")
+        print(asm.articles_rendered(self, titles)[1])
 
         # officially offering articles to bidders
-        for count, auctioneer in enumerate(self.agent.get("bidders_list")):
-            msg = Message(to=auctioneer)
+        for count, bidder in enumerate(self.agent.get("bidders_list")):
+            msg = Message(to=bidder)
             msg.body = "A: Welcome to the biggest Wiki-Auction in the world. We have the following titles to Sell: " \
-                       + example + ". You can bid on each of the articles based on your choice."
+                       + str(titles) + ". You can bid on each of the articles based on your choice."
             await self.send(msg)
 
-        articles_agent_can_sell = self.agent.get("articles_agent_can_sell")
-        for article in articles_agent_can_sell:
-            pass
-          # print(article)
 
         msg = await self.receive(timeout=sys.float_info.max)
         print("State: StartAuctionState, A: Got message '" + msg.body + " " + self.agent.get("name") + "'")

@@ -1,10 +1,4 @@
 import sys
-import os
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
-import string
 from spade.agent import Agent
 from spade.message import Message
 from spade.behaviour import FSMBehaviour, State
