@@ -32,6 +32,8 @@ async def main():
 	bidder2.set("initialBids", 10)
 	bidder2.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
 	bidder2.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
+	#print(bidder2.get("articles_agent_can_sell"))
+
 
 	# reference bidders
 	auctioneer.set("name", "Fred")
@@ -39,7 +41,7 @@ async def main():
 	auctioneer.set("id", 3)
 	auctioneer.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
 	auctioneer.set("articles_agent_can_sell", selltxt_mod)
-	#print(selltxt_mod)
+	print(selltxt_mod)
 
 	auctioneer.set("raw_articles", (Wikipedia(), open("exercise1/data/sell.txt", "r")))
 
