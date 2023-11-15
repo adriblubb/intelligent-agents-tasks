@@ -4,51 +4,50 @@ import spade
 
 from src.exercise1.agent_bidder import BidderAgent
 from src.exercise1.agent_auctioneer import AuctioneerAgent
-from src.utils.wikipedia import Wikipedia
 
+
+# Define main method of the auction. Create bidder and auctioneer agents and set initialized variables
 async def main():
-	# login
-	auctioneer = AuctioneerAgent("auctioneer@localhost", "auctioneer")
+	# Create bidder agent 1
 	bidder1 = BidderAgent("bidder1@localhost", "bidder1")
-	bidder2 = BidderAgent("bidder2@localhost", "bidder2")
-
-	#preprocess: cut /n in sell
-	with open("exercise1/data/sell.txt", "r") as acs:
-		selltxt_mod = [line.rstrip() for line in acs]
-
-
-#TODO load into corpus json by utils wiki into corpus. training
-	# declaring names and ids
-	bidder1.set("name", "Janine")
-	bidder1.set("id", 1)
-	bidder1.set("query", "motor")
-	bidder1.set("initialBids", 10)
-	bidder1.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
-	bidder1.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
-
-	bidder2.set("name", "June")
-	bidder2.set("id", 2)
-	bidder2.set("query", "car")
-	bidder2.set("initialBids", 10)
-	bidder2.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
-	bidder2.set("articles_agent_can_sell", open("exercise1/data/sell.txt", "r"))
-	#print(bidder2.get("articles_agent_can_sell"))
-
-
-	# reference bidders
-	auctioneer.set("name", "Fred")
-	auctioneer.set("bidders_list", ['bidder1@localhost', 'bidder2@localhost'])
-	auctioneer.set("id", 3)
-	auctioneer.set("articles_agent_can_buy", open("exercise1/corpus.txt", "r"))
-	auctioneer.set("articles_agent_can_sell", selltxt_mod)
-	print(selltxt_mod)
-
-	auctioneer.set("raw_articles", (Wikipedia(), open("exercise1/data/sell.txt", "r")))
-
-	#init
 	await bidder1.start()
+	# Give query to bidder 1, can be done randomly if wish
+	bidder1.set("query", ["Honda", "BMW", "Audi"])
+	# list articles which were aquired
+	bidder1.set("bought_articles_x_value", [])
+	bidder1.set("non_bought_articles_x_value",[])
+	bidder1.set("id", 1)
+
+
+	# Create bidder agent 2
+	bidder2 = BidderAgent("bidder2@localhost", "bidder2")
 	await bidder2.start()
+	# Give query to bidder 2, can be done randomly if wish
+	bidder2.set("query", ["Edward Norton", "Harrison Ford", "Johnny Depp"])
+	# list articles which were aquired
+	bidder2.set("bought_articles", [])
+	bidder2.set("bought_articles_x_value", [])
+	bidder2.set("non_bought_articles_x_value", [])
+	bidder2.set("id", 2)
+	# possibly add later for better performance. - as cache file
+	# bidder1.set("tf_idf_cache", {})
+	# bidder2.set("tf_idf_cache", {})
+
+	# Create auctioneer agent
+	auctioneer = AuctioneerAgent("auctioneer@localhost", "auctioneer")
+	auctioneer.set("bidders_list", ['bidder1@localhost', 'bidder2@localhost'])
+	bidder1.set("auctioneer", "auctioneer@localhost")
+	bidder2.set("auctioneer", "auctioneer@localhost")
 	await auctioneer.start()
+
 
 if __name__ == "__main__":
 	spade.run(main())
+
+# TODO - fragen auf dem Zettel beantworten in txt
+# TODO - TODOs aus dem Code abarbeiten
+# TODO - aufgabe 6
+# TODO - valuierung und preisberechnung prüfen, gegebenenfalls tf_idf berechnung anpassen
+# TODO - klären was passiert wenn beide das Dokument nicht haben wollen -> trotzdem vergeben?
+# TODO - runtime Fehlermeldung am Ende beseitigen?
+# Frage 1 : queries die eine eindeutige Mehrheit eines bestimmten Topics besitzen (so wird nicht einfach auf alles geboten)

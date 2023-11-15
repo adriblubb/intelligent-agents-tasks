@@ -1,161 +1,168 @@
 import sys
-import nltk
+
 from spade.agent import Agent
 from spade.message import Message
 from spade.behaviour import FSMBehaviour, State
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
-import string
-import random
-import time
-# adding go ahead with auction state
-from src.utils.wikipedia import Wikipedia
 
-STATE_START_AUCTION = "STATE_START_AUCTION"
-STATE_MAKE_OFFER = "STATE_MAKE_OFFER"
-STATE_ANALYZE_BID = "STATE_ANALYZE_BID"
-STATE_DECLARE_WINNER = "STATE_DECLARE_WINNER"
+import src.utils.functions as functions
+from random import randint, shuffle
+
+STATE_PREPARATION = "STATE_PREPARATION"
+# Added states
+STATE_GIVE_DOCUMENT = "STATE_GIVE_DOCUMENT"
+STATE_AWAIT_BID = "STATE_AWAIT_BID"
+STATE_SAY_WINNER = "STATE_SAY_WINNER"
+# End added states
 STATE_END = "STATE_END"
-STATE_AUCTION = "STATE_AUCTION"
-
-# list. list of rendered articles
-rendered_articles = []
-#list. list which will be filled in runtime
-articles_auction = []
-# integer, how many articles are auctioned
-num_auctioned_articles = 3
 
 
-
-
+# Set behaviour of auctioneer on start and end, create finite state machine agent
 class AuctioneerStateMachine(FSMBehaviour):
     async def on_start(self):
-        # print(self.get_auction_articles(3))
-        pass
+        print("Starting auction")
 
     async def on_end(self):
+        msg_eval = await self.receive(timeout=sys.float_info.max)
+        print(msg_eval.body)
+        print("Ending auction")
         await self.agent.stop()
 
-    #returns titles
-    def getTitles(self):
-        return articles_auction
 
-    #return currently renderd articles
-    def getRenderedArticles(self):
-        return rendered_articles
-
-    # returns list of *num_articles* headings, randomly chosen
-    def create_auction_titles(self, num_articles):
-        # prepare 3 wiki articles for the auction
-        articles_agent_can_sell = self.agent.get("articles_agent_can_sell")
-        # test print
-        for article in range(num_articles):
-            articles_auction.append(articles_agent_can_sell[random.randint(0, len(articles_agent_can_sell))])
-
-        return articles_auction
-
-    # turn wiki articles into td.idf input
-    def render(self, text):
-        # Tokenize the text
-        tokens = word_tokenize(text)
-
-        # Convert tokens to lowercase
-        tokens = [token.lower() for token in tokens]
-
-        # Remove punctuation from each token
-        tokens = [token for token in tokens if token not in string.punctuation]
-
-        # Filter out tokens that are not alphabetic
-        tokens = [token for token in tokens if token.isalpha()]
-
-        # Filter out stop words
-        stop_words = set(stopwords.words("english"))
-        tokens = [token for token in tokens if token not in stop_words]
-
-        # Stem words with PorterStemmer
-        stemmer = PorterStemmer()
-        tokens = [stemmer.stem(token) for token in tokens]
-
-        return tokens
-
-    def article_rendered(self, article):
-        return self.render(Wikipedia.get(Wikipedia(), article))
-
-    def articles_rendered(self, titles):
-        asm = AuctioneerStateMachine
-        for article in titles:
-            rendered_articles.append(asm.render(self, Wikipedia.get(Wikipedia(), article)))
-        return rendered_articles
-
-
-class StartAuctionState(State):
-
+# State of auctioneer to prepare for the auction: Load the list with the documents to sell, only called once
+class PreparationState(State):
     async def run(self):
-        asm = AuctioneerStateMachine
-        titles = asm.create_auction_titles(self, 3)
-        rendered_articles = asm.articles_rendered(self, titles)
-        print(titles)
-        #print("rendered first:")
-        #print(asm.articles_rendered(self, titles)[1][1:200])
+        """ For debugging purpose or to keep track on the current state:
+        print("State: Preparation, load sell documents") """
+        # Load document as string
+        sell_list = functions.read_file("./exercise1/data/sell_xs.txt")
+        # Change string into list
+        sell_list = sell_list.split("\n")
+        # Store sellDocuments in the knowledge base of agent
+        self.agent.set("sellDocuments", sell_list[1:])
+        # Move to next state
+        self.set_next_state(STATE_GIVE_DOCUMENT)
 
-        # officially offering articles to bidders
-        for count, bidder in enumerate(self.agent.get("bidders_list")):
+
+# State of auctioneer to give one document to sell to the bidder. The state is beginning of a loop
+class GiveDocState(State):
+    async def run(self):
+        """ For debugging purpose or to keep track on the current state:
+        print("State: Give Document to bidder") """
+        # Get the list to sell the documents
+        sell_list = self.agent.get("sellDocuments")
+        # Select the document to sell randomly, so there is no structure anymore
+        sell_item = sell_list.pop(randint(0, len(sell_list) - 1))
+        # Store sell_item in the knowledge base of agent
+        self.agent.set("sell_item", sell_item)
+        # Send message to the bidder with the title of the document to sell
+        # This is done randomly so no bidder is preferred in later stages
+        shuffle_bidders_list = self.agent.get("bidders_list")
+        shuffle(shuffle_bidders_list)
+        for bidder in shuffle_bidders_list:
             msg = Message(to=bidder)
-            msg.body = "A: Welcome to the biggest Wiki-Auction in the world. We have the following titles to Sell: " \
-                       + str(titles) + ". You can bid on each of the articles based on your choice."
+            # Only the title, not entire doc is sent to the bidder
+            msg.body = "The document for sale is '" + str(sell_item) + "'"
+
             await self.send(msg)
-        #msg3 = await self.receive(timeout=sys.float_info.max)
-        #print("State: StartAuctionState, A: Got message '" + msg3.body + " " + self.agent.get("name") + "'")
-        # Update the agent's data with the rendered articles
-        self.agent.set("rendered_articles", rendered_articles)
-        self.set_next_state(STATE_MAKE_OFFER)
+        # Move to next state
+        self.set_next_state(STATE_AWAIT_BID)
 
-class MakeOfferState(State):
+
+# State of auctioneer to wait for the bids of the bidder. Calculates the winner on the given bids
+class AwaitBidState(State):
     async def run(self):
-        print("State: MakeOfferState. A: " + self.agent.get("name"))
-        asm = AuctioneerStateMachine
-        print("check")
-        #temp test
-        x = asm.getTitles(self)
-        articles = asm.getRenderedArticles(self)
+        """ For debugging purpose or to keep track on the current state:
+        print("State: Await Bids from both") """
+        # Awaits the messages from the bidder, in this auction the bidder have to send a message,
+        # even if they don't want to bid on this item, so there is no need of a specific timeout after n seconds
+        list_bids_bidder = []
+        for bidder in self.agent.get("bidders_list"):
+            # Receive message of bidder
+            msg = await self.receive(timeout=sys.float_info.max)
+            # Store name and amount of bidder
+            list_bids_bidder.append((str(msg.sender).split("@")[0], float(msg.body)))
+        # TODO - what do with optional print?
+        print("State: Got bids:", list_bids_bidder)
+        # Sort list after biggest value
+        list_bids_bidder.sort(key=lambda bid: bid[1], reverse=True)
+        # If both bidder bids nothing, the document gets ejected
+        # If they give identical bids, it is randomly chosen who is winner, can be adapted to more than two bidder
+        if list_bids_bidder[0][1] == 0.0:
+            # Tell the bidder that this document is ejected
+            for bidder in self.agent.get("bidders_list"):
+                msg = Message(to=bidder)
+                msg.body = "No bids for the documents. Eject this. Going to the next one."
+                await self.send(msg)
+            # List of selling documents is empty -> end auction
+            if not self.agent.get("sellDocuments"):
+                self.set_next_state(STATE_END)
+            # List of selling documents not empty -> Sell next document
+            else:
+                self.set_next_state(STATE_GIVE_DOCUMENT)
+        elif list_bids_bidder[0][1] == list_bids_bidder[1][1]:
+            chance = randint(0, 1)
+            self.agent.set("winner", list_bids_bidder[chance])
+            # Move to next state
+            self.set_next_state(STATE_SAY_WINNER)
+        else:
+            self.agent.set("winner", list_bids_bidder[0])
+            # Move to next state
+            self.set_next_state(STATE_SAY_WINNER)
 
 
-        for count, bidder in enumerate(self.agent.get("bidders_list")):
-            msg2 = Message(to=bidder)
-            print("current article being auctioned: "+ x[0])
-            msg2.body = str("msg2test"+str(articles[0]))
-            await self.send(msg2)
-
-        self.set_next_state(STATE_ANALYZE_BID)
-
-class AnalyzeBidState(State):
+# State of auctioneer to say the winner to the bidder. Checks if there are more documents to sell. End of the loop
+class SayWinnerState(State):
     async def run(self):
-        self.set_next_state(STATE_END)
+        """ For debugging purpose or to keep track on the current state:
+        print("State: Say Winner") """
+        # TODO - what do with optional print?
+        print("Winner is: " + self.agent.get("winner")[0], str(self.agent.get("sell_item")))
+        # Send winner to the bidder
+        for bidder in self.agent.get("bidders_list"):
+            msg = Message(to=bidder)
+            msg.body = "The Winner of the document " + str(self.agent.get("sell_item")) + \
+                       " is " + str(self.agent.get("winner")[0])
+            await self.send(msg)
+        # List of selling documents is empty -> end auction
+        if not self.agent.get("sellDocuments"):
+            self.set_next_state(STATE_END)
+        # List of selling documents not empty -> Sell next document
+        else:
+            self.set_next_state(STATE_GIVE_DOCUMENT)
 
-# auction ends, when als articles are sold
+
+# State of auctioneer to end auction by sending the message to the bidder.
 class EndState(State):
     async def run(self):
-        print("State: EndState. A: "+self.agent.get("name"))
+        """ For debugging purpose or to keep track on the current state:
+        print("State: End, no more documents to sell. Closing Auction!") """
+        for bidder in self.agent.get("bidders_list"):
+            msg = Message(to=bidder)
+            msg.body = "No more documents to sell. Closing Auction!"
+            await self.send(msg)
 
-
-
+# Defines states and transitions of the auctioneer agent
 class AuctioneerAgent(Agent):
     async def setup(self):
         asm = AuctioneerStateMachine()
 
-        asm.add_state(name=STATE_START_AUCTION, state=StartAuctionState(), initial=True)
-        asm.add_state(name=STATE_MAKE_OFFER, state=MakeOfferState())
-        asm.add_state(name=STATE_ANALYZE_BID, state=AnalyzeBidState())
+        asm.add_state(name=STATE_PREPARATION, state=PreparationState(), initial=True)
+        # Added states
+        asm.add_state(name=STATE_GIVE_DOCUMENT, state=GiveDocState())
+        asm.add_state(name=STATE_AWAIT_BID, state=AwaitBidState())
+        asm.add_state(name=STATE_SAY_WINNER, state=SayWinnerState())
+        # Added states
         asm.add_state(name=STATE_END, state=EndState())
 
-
-        # adding transitions prep -> start/welcome -> how will auction work ->
-        asm.add_transition(source=STATE_START_AUCTION, dest=STATE_MAKE_OFFER)
-        asm.add_transition(source=STATE_MAKE_OFFER, dest=STATE_ANALYZE_BID)
-        asm.add_transition(source=STATE_ANALYZE_BID, dest=STATE_MAKE_OFFER)
-        asm.add_transition(source=STATE_MAKE_OFFER, dest=STATE_END)
-        # temp transition to test
-        asm.add_transition(source=STATE_ANALYZE_BID, dest=STATE_END)
+        # adding transitions
+        asm.add_transition(source=STATE_PREPARATION, dest=STATE_GIVE_DOCUMENT)
+        # Added transitions
+        asm.add_transition(source=STATE_GIVE_DOCUMENT, dest=STATE_AWAIT_BID)
+        asm.add_transition(source=STATE_AWAIT_BID, dest=STATE_GIVE_DOCUMENT)
+        asm.add_transition(source=STATE_AWAIT_BID, dest=STATE_SAY_WINNER)
+        asm.add_transition(source=STATE_SAY_WINNER, dest=STATE_GIVE_DOCUMENT)
+        # Added transitions
+        asm.add_transition(source=STATE_AWAIT_BID, dest=STATE_END)
+        asm.add_transition(source=STATE_SAY_WINNER, dest=STATE_END)
 
         self.add_behaviour(asm)
