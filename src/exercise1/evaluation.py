@@ -20,7 +20,7 @@
 # but if we later want to compare which article got chosen against another this version will show more solid
 # we could also work with timestamps, like in which iteration which article got chosen (later: over which?)
 
-auctioneer.set("bought_articles", [])
+'''auctioneer.set("bought_articles", [])
 auctioneer.set("bought_articles", [])
 
 
@@ -149,4 +149,4 @@ for i in range(len(bids_given_bidder1)):
 # strategy can be made in respect to getting a high tfidf score
 
 # now these functions could be integrated in TASK 5 also.
-# if bidding by standard is always too high, then in next iteration bid 1 less.
+# if bidding by standard is always too high, then in next iteration bid 1 less.'''

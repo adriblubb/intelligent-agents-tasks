@@ -133,3 +133,13 @@ def valuating(database, query, tf_idf_docs, sell_doc_title):
 def get_price_for_value(value, factor_oppo=1):
     return value**(1/10) * 5 * factor_oppo # 1/8?
     #return value * 100 * factor_oppo
+
+
+# Calculate relation of docA through docB
+def getPercentage(score_docA, score_docB):
+
+    percentage = score_docA / score_docB
+
+
+    # maybe handler for correct inputs eg minus etc. possibly won't happen with tfidf
+    return percentage

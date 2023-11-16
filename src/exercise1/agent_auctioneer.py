@@ -22,8 +22,7 @@ class AuctioneerStateMachine(FSMBehaviour):
         print("Starting auction")
 
     async def on_end(self):
-        msg_eval = await self.receive(timeout=sys.float_info.max)
-        print(msg_eval.body)
+
         print("Ending auction")
         await self.agent.stop()
 

@@ -16,28 +16,6 @@ STATE_AWAIT_WIN = "STATE_AWAIT_WIN"
 # Added states
 STATE_END = "STATE_END"
 
-
-# TODO: put into helpfunction
-def getSellList():
-    with open("./exercise1/data/sell_xs.txt", "r") as acs:
-        sellList = [line.rstrip() for line in acs]
-    print(sellList)
-    return sellList
-
-
-# percentage: return - ,xx if B is bigger A and + ,xx if A is bigger B
-def getPercentage(score_docA, score_docB):
-    # if score_docA >= score_docB:
-    # A bigger B -> percentage would be 0,xx
-    percentage = score_docA / score_docB
-    # else:
-    # if B bigger A, then make it minus
-    # percentage = -(score_docA/score_docB)
-
-    # maybe handler for correct inputs eg minus etc. possibly won't happen with tfidf
-    return percentage
-
-
 # Set behaviour of bidder on start and end, create finite state machine agent
 class BidderStateMachine(FSMBehaviour):
     async def on_start(self):
@@ -57,18 +35,25 @@ class PreparationState(State):
 
         self.agent.set("corpus_list", corpus_list[1:])
 
+        # either 1) reading in or 2) creation of cache file of processed (tokenized+stemmed) wiki file
+        # define path of cache
         cache_file_path = "./utils/cache/wiki_tokenized.json"
+
+        # 1) if cache exists, load it, skips creation
         if os.path.exists(cache_file_path):
-            # if cache exists, load it, skip with reload
+            # load cache file into local database
             database_processed = functions.read_json_file(cache_file_path)
+        # 2) if cache does not exist, create a new one to skip on next run + enhance performance
         else:
-            # Load database, preprocess the database for better performance and store tokens in knowledge base of agent
+            # Load database..
             database = functions.read_json_file("./utils/cache/wikipedia.json")
             database_processed = {}
+            # ..store tokens in knowledge base of agent..
             for key in database:
                 database_processed[key] = helpfunc.preprocessing(database[key])
+            # ...create the cache
             functions.write_json_file(cache_file_path, database_processed)
-
+        # put data into agent
         self.agent.set("database_processed", database_processed)
 
         # Move to next state
@@ -113,7 +98,12 @@ class CalcValState(State):
         # TODO - strategie for opponent
         # Calculate the price for the item based on the value
         price = helpfunc.get_price_for_value(value)
+
+        # temporarly add tuples of (article name; price) as nested lists to later access them (e.g. in evaluation)
+        # (decision which will be kept, see AwaitWinState)
+        # .. for articles the agent potentially acquires
         self.agent.get("bought_articles_x_value").append([[self.agent.get("buy_doc")], price])
+        # .. for articles the agent potentially dismisses
         self.agent.get("non_bought_articles_x_value").append([[self.agent.get("buy_doc")], price])
         # Send message with the price to the auctioneer
         msg = Message(to=self.agent.get("auctioneer"))
@@ -135,9 +125,10 @@ class AwaitWinState(State):
         # The bidder not the winner -> remove document from the corpus_list
         if self.agent.name not in msg.body:
             self.agent.get("corpus_list").pop()
+            # .. and also remove tuple(article name; price) of not-won article.. or keep it and..
             self.agent.get("bought_articles_x_value").pop()
         else:
-            # adding article|valuation price to agents' nonbought-list
+            # ..instead: remove tuple(article name; price) from agents' nonbought-list
             self.agent.get("non_bought_articles_x_value").pop()
         # TODO: strategie for better price than the opponent: see which docs he gets -> change price calc (increase by 1/2)
         # Move to next state
@@ -155,36 +146,43 @@ class EndState(State):
         #
         # idea:
         # which documents were missed, which were acquired
-        # how valuable are acquired docs against non-acquired
+        # how valuable are acquired docs against non-acquired and other docs
 
         # STEP ONE -> define basic score logic
 
-        # Sum up valuations of bought documents and potential valuations
+        # Sum up valuations of bought/non-bought documents: item[0] -> name item[1] -> value // total score
         bought_valuation_sum = sum([item[1] for item in self.agent.get("bought_articles_x_value")])
         missed_valuation_sum = sum([item[1] for item in self.agent.get("non_bought_articles_x_value")])
 
-        # print("non-bought/val/valmissed" + str(self.agent.get("id")))
-        # print(non_bought_articles)
-        # print(bought_valuation_sum)
-        # print(missed_valuation_sum)
-
-        # check if article num is positive, if yes define
+        # check if article num is positive (avoid x through 0), if yes define // number of articles
         total_bought_articles = len(self.agent.get("bought_articles_x_value")) if len(
             self.agent.get("bought_articles_x_value")) > 0 else 1
         total_missed_articles = len(self.agent.get("non_bought_articles_x_value")) if len(
             self.agent.get("non_bought_articles_x_value")) > 0 else 1
 
-        # calculating score, avoiding div by zero through arg max
-        # score of bought vs not aquired articles
-        quality_score = (bought_valuation_sum / total_bought_articles) / max(
-            (missed_valuation_sum / total_missed_articles), 1)
+        # relate sums to number of summands
+        bought_normalized = (bought_valuation_sum / total_bought_articles)
+        # avoiding div by zero through arg max
+        missed_normalized = max((missed_valuation_sum / total_missed_articles),1)
+        all_normalized = max((missed_valuation_sum + bought_valuation_sum)/ max((total_missed_articles + total_bought_articles),1),1)
+
+        # score of bought vs not aquired articles // total score normalized
+        quality_score = bought_normalized / missed_normalized
         # score of bought vs all given articles
-        quality_score_all = (bought_valuation_sum / total_bought_articles) / max(
-            ((missed_valuation_sum + bought_valuation_sum) / (total_missed_articles + total_bought_articles)), 1)
+        quality_score_all = bought_normalized / all_normalized
 
         # STEP TWO -> interpret and visualize calculated logic
         # idea: reduce noise of calculated measures. make measures more easily interpretable and understandable
 
+        # get the percentage of bought valuation against not-bought valuation; based on quality score
+        quality_score_P = (helpfunc.getPercentage(bought_normalized, missed_normalized) - 1) * 100
+
+
+
+        # get the percentage of bought valuation against all available articles' valuation; based on quality score all
+        quality_score_allP = (helpfunc.getPercentage(bought_normalized, all_normalized) - 1) * 100
+
+        # overview outputs below
         '''print("Quality Score (bought docs vs not acquired docs) by bidder ", self.agent.get("id"), "is: ",
               quality_score)
         print(
@@ -194,45 +192,43 @@ class EndState(State):
             "correlated with the total value of missed (normalized) articles:",
             max((missed_valuation_sum / total_missed_articles), 1))'''
 
-        x_not_bought = (getPercentage((bought_valuation_sum / total_bought_articles),
-                                  (
-                                      missed_valuation_sum if missed_valuation_sum > 0 else 1) / total_missed_articles) - 1) * 100
-
-        # get the percentage of bought valuation against not-bought valuation
         '''print("score of bought article-value is by", x_not_bought,
-              "% higher than the score of not-acquired articles(normalized average).")
+                      "% higher than the score of not-acquired articles(normalized average).")
 
-        print("Quality Score (bought docs against all docs) by bidder ", self.agent.get("id"), "is: ",
-              quality_score_all)'''
-
-        x_all = (getPercentage((bought_valuation_sum / total_bought_articles),
-                               ((missed_valuation_sum + bought_valuation_sum) if (
-                                                                                         missed_valuation_sum + bought_valuation_sum) > 0 else 1) / (
-                                       total_missed_articles + total_bought_articles)) - 1) * 100
-        # get the percentage of bought valuation against all articles' valuation
+                print("Quality Score (bought docs against all docs) by bidder ", self.agent.get("id"), "is: ",
+                      quality_score_all)'''
         '''print("score of bought article-value is by",
-              x_all,
-              "% higher than the score of all articles(normalized average).")'''
+                     x_all,
+                     "% higher than the score of all articles(normalized average).")'''
+
+
         # STEP THREE: draw a conclusion on given data
         # define a metric to evaluate
+        # Explain: bought articles' score concerning query has been successful/ not successful
         print("The improvement of the chosen documents against the ones, which have not been aquired is as high as",
-              x_not_bought, "%.")
-        if 0 <= x_all < 20:
+              quality_score_P, "%.")
+        # score over 20 is marked as significantly successful
+        if 0 < quality_score_allP < 20:
             print("With TFIDF, the agent's corpus and given query:", self.agent.get("query"), "by agent:", self.agent.get("id"),
-                  " an improvement of: ", x_all, "%could be measured. It could be shown that the chosen documents show greater correlation with the agents query than the set of all documents given. Therefore the algorithm has worked.")
-        elif x_all >= 20:
+                  " an improvement of: ", quality_score_allP, "%could be measured. It could be shown that the chosen documents show greater correlation with the agents query than the set of all documents given. Therefore the algorithm has worked.")
+        elif quality_score_allP >= 20:
             print("With TFIDF, the agent's corpus and given query:", self.agent.get("query"), "by agent:", self.agent.get("id"),
-                  " an significant improvement of: ", x_all, "%could be measured. It could be shown that the chosen documents show greater correlation with the agents query than the set of all documents given. Therefore the algorithm has worked.")
+                  " an significant improvement of: ", quality_score_allP, "%could be measured. It could be shown that the chosen documents show greater correlation with the agents query than the set of all documents given. Therefore the algorithm has worked.")
+        # zero/negative score (by -1 after getPercentage(a,b)) indicates that the query and tfidf combined are not helpful in finding fitting docs
         else:
             print("With TFIDF and given query:", self.agent.get("query"), "by agent: ", self.agent.get("id"), "no improvement could be shown")
 
         print("The updated corpus of", self.agent.get("id"), " is now: ", self.agent.get("corpus_list"), ".")
         print("Agent", self.agent.get("id"), "has aquired the following docs through the auction: ", [item[0] for item in self.agent.get("bought_articles_x_value")], ".")
 
+        # later: send to auctioneer for comparison
+        print([quality_score_all, self.agent.get("id")])
 
+        '''msg = Message(to=self.agent.get("auctioneer"))
 
+        msg.body = str([quality_score_all, self.agent.get("id")] if quality_score_allP > 0 else "x")
 
-
+        await self.send(msg)'''
 
 # Defines states and transitions of the bidder agent
 class BidderAgent(Agent):

@@ -12,11 +12,9 @@ async def main():
 	await bidder1.start()
 	# Give query to bidder 1, can be done randomly if wish
 	bidder1.set("query", ["Honda", "BMW", "Audi"])
-	# nested list, list tuple of bought articles and their calculated value on aquisition
+	# list articles which were aquired
 	bidder1.set("bought_articles_x_value", [])
-	# nested list, list tuple of non-bought articles and their calculated value on aquisition
 	bidder1.set("non_bought_articles_x_value",[])
-	# id of the bidder
 	bidder1.set("id", 1)
 
 
@@ -27,11 +25,8 @@ async def main():
 	bidder2.set("query", ["Edward Norton", "Harrison Ford", "Johnny Depp"])
 	# list articles which were aquired
 	bidder2.set("bought_articles", [])
-	# nested list, list tuple of bought articles and their calculated value on aquisition
 	bidder2.set("bought_articles_x_value", [])
-	# nested list, list tuple of non-bought articles and their calculated value on aquisition
 	bidder2.set("non_bought_articles_x_value", [])
-	# id of the bidder
 	bidder2.set("id", 2)
 	# possibly add later for better performance. - as cache file
 	# bidder1.set("tf_idf_cache", {})
