@@ -50,7 +50,7 @@ def calc_freq(database, corpus_list):
     for title in corpus_list:
         tokens = database[title]
         # For all words in document add title
-        for token in tokens:
+        for token in np.unique(tokens):
             try:
                 doc_f[token].add(title)
             except KeyError:
@@ -82,7 +82,7 @@ def calc_tf_idf(database, corpus_list):
         counter = Counter(tokens)
         # Document length
         words_count = len(tokens)
-        # TODO - change to only compute with tokens of sell_item?
+        # Calculate tf_idf
         for token in np.unique(tokens):
             # Calculate term_frequency
             tf = counter[token] / words_count
@@ -128,18 +128,15 @@ def valuating(database, query, tf_idf_docs, sell_doc_title):
     return value * scale_factor/3
 
 
-# TODO - value kann durch funktion auf preis gemappt werden oder wie im Vorschlag preis kann durch den unterschied der beiden corpusse berechnet werden???
 # Calculate price for the value, has the possibility to increase his price based on the opponent
 def get_price_for_value(value, factor_oppo=1):
-    return value**(1/10) * 5 * factor_oppo # 1/8?
-    #return value * 100 * factor_oppo
+    return round(value**(1/100) * 5, 4) * factor_oppo
 
 
 # Calculate relation of docA through docB
-def getPercentage(score_docA, score_docB):
+def get_percentage(score_docA, score_docB):
 
     percentage = score_docA / score_docB
-
 
     # maybe handler for correct inputs eg minus etc. possibly won't happen with tfidf
     return percentage

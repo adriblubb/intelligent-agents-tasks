@@ -1,5 +1,5 @@
 import sys
-
+import asyncio
 from spade.agent import Agent
 from spade.message import Message
 from spade.behaviour import FSMBehaviour, State
@@ -22,7 +22,7 @@ class AuctioneerStateMachine(FSMBehaviour):
         print("Starting auction")
 
     async def on_end(self):
-
+        await asyncio.sleep(60)
         print("Ending auction")
         await self.agent.stop()
 
@@ -33,7 +33,7 @@ class PreparationState(State):
         """ For debugging purpose or to keep track on the current state:
         print("State: Preparation, load sell documents") """
         # Load document as string
-        sell_list = functions.read_file("./exercise1/data/sell_xs.txt")
+        sell_list = functions.read_file("./exercise1/data/sell.txt")
         # Change string into list
         sell_list = sell_list.split("\n")
         # Store sellDocuments in the knowledge base of agent
@@ -139,6 +139,7 @@ class EndState(State):
             msg = Message(to=bidder)
             msg.body = "No more documents to sell. Closing Auction!"
             await self.send(msg)
+
 
 # Defines states and transitions of the auctioneer agent
 class AuctioneerAgent(Agent):

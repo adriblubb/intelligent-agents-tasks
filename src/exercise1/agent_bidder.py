@@ -16,6 +16,7 @@ STATE_AWAIT_WIN = "STATE_AWAIT_WIN"
 # Added states
 STATE_END = "STATE_END"
 
+
 # Set behaviour of bidder on start and end, create finite state machine agent
 class BidderStateMachine(FSMBehaviour):
     async def on_start(self):
@@ -30,7 +31,7 @@ class BidderStateMachine(FSMBehaviour):
 class PreparationState(State):
     async def run(self):
         # Load corpus in the knowledge base of agent
-        corpus_list = functions.read_file("./exercise1/data/corpus_xs.txt")
+        corpus_list = functions.read_file("./exercise1/data/corpus.txt")
         corpus_list = corpus_list.split("\n")
 
         self.agent.set("corpus_list", corpus_list[1:])
@@ -95,7 +96,6 @@ class CalcValState(State):
         # Valuating the item based on the tf_idf score
         value = helpfunc.valuating(self.agent.get("database_processed"), self.agent.get("query"),
                                    self.agent.get("tf.idf_docs"), self.agent.get("buy_doc"))
-        # TODO - strategie for opponent
         # Calculate the price for the item based on the value
         price = helpfunc.get_price_for_value(value)
 
@@ -130,7 +130,6 @@ class AwaitWinState(State):
         else:
             # ..instead: remove tuple(article name; price) from agents' nonbought-list
             self.agent.get("non_bought_articles_x_value").pop()
-        # TODO: strategie for better price than the opponent: see which docs he gets -> change price calc (increase by 1/2)
         # Move to next state
         self.set_next_state(STATE_AWAIT_DOC)
 
@@ -175,12 +174,12 @@ class EndState(State):
         # idea: reduce noise of calculated measures. make measures more easily interpretable and understandable
 
         # get the percentage of bought valuation against not-bought valuation; based on quality score
-        quality_score_P = (helpfunc.getPercentage(bought_normalized, missed_normalized) - 1) * 100
+        quality_score_P = (helpfunc.get_percentage(bought_normalized, missed_normalized) - 1) * 100
 
 
 
         # get the percentage of bought valuation against all available articles' valuation; based on quality score all
-        quality_score_allP = (helpfunc.getPercentage(bought_normalized, all_normalized) - 1) * 100
+        quality_score_allP = (helpfunc.get_percentage(bought_normalized, all_normalized) - 1) * 100
 
         # overview outputs below
         '''print("Quality Score (bought docs vs not acquired docs) by bidder ", self.agent.get("id"), "is: ",
@@ -229,6 +228,7 @@ class EndState(State):
         msg.body = str([quality_score_all, self.agent.get("id")] if quality_score_allP > 0 else "x")
 
         await self.send(msg)'''
+
 
 # Defines states and transitions of the bidder agent
 class BidderAgent(Agent):
