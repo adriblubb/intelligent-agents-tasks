@@ -33,10 +33,14 @@ async def main():
 	# IR agents
 	ir1 = IRAgent("bidder1@localhost", "bidder1")
 	ir1.set("corpus_file", "corpus")
+	# defining some query as wikipedia article
+	ir1.set("query", ["New York City", "Harrison Ford", "Choi Min-sik"])
 	await ir1.start()
 
 	ir2 = IRAgent("bidder2@localhost", "bidder2")
 	ir2.set("corpus_file", "corpus")
+	# defining some query as wikipedia article
+	ir2.set("query", ["Honda", "Seattle", "Audi"])
 	await ir2.start()
 
 	# Auctioneer

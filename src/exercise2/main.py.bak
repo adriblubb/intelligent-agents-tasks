@@ -1,52 +1,64 @@
 #!/usr/bin/env python3
+
 import spade
 
-from src.exercise2.agent_bidder import BidderAgent
+# get your solution from exercise 1!
+from src.exercise2.agent_ir import IRAgent # e.g., might rename bidder cause answering added
 from src.exercise2.agent_auctioneer import AuctioneerAgent
+# new agent type
+from src.exercise2.agent_questioner import QuestionerAgent
 
-
-# Define main method of the auction. Create bidder and auctioneer agents and set initialized variables
 async def main():
-	# Create bidder agent 1
-	bidder1 = BidderAgent("bidder1@localhost", "bidder1")
-	await bidder1.start()
-	# Give query to bidder 1, can be done randomly if wish
-	bidder1.set("query", ["Honda", "BMW", "Audi"])
-	# list articles which were aquired
-	bidder1.set("bought_articles_x_value", [])
-	bidder1.set("non_bought_articles_x_value",[])
-	bidder1.set("id", 1)
+	# functionality to implement:
+	'''
+	testing: getting to know lda and playing with it
+
+	building lda model
+	tune lda hyperparams
+	visualize an lda model
+	create answer query by lda  -> hellinger distance (similar docs)
+	evaluatie the performance: lda, tfidf
+	create human aware behavior
+	 -> calc discrepancy of self/query; combine lda and tfidf
+
+	 then: integrate into agents
+
+	 intermezzo of questioners and ir agents and auctioneer
+	 update lda model
+	 adjust bidding vals
 
 
-	# Create bidder agent 2
-	bidder2 = BidderAgent("bidder2@localhost", "bidder2")
-	await bidder2.start()
-	# Give query to bidder 2, can be done randomly if wish
-	bidder2.set("query", ["Edward Norton", "Harrison Ford", "Johnny Depp"])
-	# list articles which were aquired
-	bidder2.set("bought_articles", [])
-	bidder2.set("bought_articles_x_value", [])
-	bidder2.set("non_bought_articles_x_value", [])
-	bidder2.set("id", 2)
-	# possibly add later for better performance. - as cache file
-	# bidder1.set("tf_idf_cache", {})
-	# bidder2.set("tf_idf_cache", {})
 
-	# Create auctioneer agent
+	'''
+	# IR agents
+	ir1 = IRAgent("bidder1@localhost", "bidder1")
+	ir1.set("corpus_file", "corpus")
+	# defining some query as wikipedia article
+	ir1.set("query", ["New York City", "Harrison Ford", "Choi Min-sik"])
+	await ir1.start()
+
+	ir2 = IRAgent("bidder2@localhost", "bidder2")
+	ir2.set("corpus_file", "corpus")
+	# defining some query as wikipedia article
+	ir2.set("query", ["Honda", "Seattle", "Audi"])
+	await ir2.start()
+
+	# Auctioneer
 	auctioneer = AuctioneerAgent("auctioneer@localhost", "auctioneer")
 	auctioneer.set("bidders_list", ['bidder1@localhost', 'bidder2@localhost'])
-	bidder1.set("auctioneer", "auctioneer@localhost")
-	bidder2.set("auctioneer", "auctioneer@localhost")
+	auctioneer.set("documents_file", "sell")
 	await auctioneer.start()
 
+	# Questioners
+	questioner1 = QuestionerAgent("questioner1@localhost", "questioner1")
+	questioner1.set("query_target", "bidder1@localhost")
+	questioner1.set("queries_file", "queries_i")
+	await questioner1.start()
+
+	questioner2 = QuestionerAgent("questioner2@localhost", "questioner2")
+	questioner2.set("query_target", "bidder2@localhost")
+	questioner2.set("queries_file", "queries_ii")
+	await questioner2.start()
 
 if __name__ == "__main__":
 	spade.run(main())
-
-# TODO - fragen auf dem Zettel beantworten in txt
-# TODO - TODOs aus dem Code abarbeiten
-# TODO - aufgabe 6
-# TODO - valuierung und preisberechnung prüfen, gegebenenfalls tf_idf berechnung anpassen
-# TODO - klären was passiert wenn beide das Dokument nicht haben wollen -> trotzdem vergeben?
-# TODO - runtime Fehlermeldung am Ende beseitigen?
-# Frage 1 : queries die eine eindeutige Mehrheit eines bestimmten Topics besitzen (so wird nicht einfach auf alles geboten)

@@ -4,6 +4,7 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from nltk.stem import *
 from nltk.stem.porter import *
+from nltk.stem import WordNetLemmatizer
 import numpy as np
 from collections import Counter
 
@@ -25,9 +26,34 @@ def download_wiki():
     for c in content[1:]:
         wikit.get(c)
 
+# Compute bigrams, add them if > 20 and replace white space between two words with an underscore
+def compute_bigrams(tokens, min_occurrences=20):
+    # iterate through bigrams
+    bigram_occurrences = Counter(zip(tokens[:-1], tokens[1:]))
+    # define those which occur often
+    frequent_bigrams = [bigram for bigram, count in bigram_occurrences.items() if count > min_occurrences]
+
+    # add them
+    processed_tokens = []
+    for i in range(len(tokens) - 1):
+        bigram = f"{tokens[i]}_{tokens[i + 1]}"
+        if (tokens[i], tokens[i + 1]) in frequent_bigrams:
+            processed_tokens.append(bigram)
+        else:
+            processed_tokens.append(tokens[i])
+
+    # add the last token if it's not part of a bigram
+    if len(tokens) > 0 and (tokens[-2], tokens[-1]) not in frequent_bigrams:
+        processed_tokens.append(tokens[-1])
+
+    return processed_tokens
 
 # Preprocess text into tokens after specific procedure
-def preprocessing(text):
+def preprocessing(text, lda):
+    '''
+    param text: text of wikipedia article to be preprocessed
+    param lda: true if lemmatization needed, false: stemming needed
+    '''
     # Make text to tokens and remove punctuation with regex-pattern: w for word-char, + for many w
     tokenizer = RegexpTokenizer(r'\w+')
     tokens = tokenizer.tokenize(text)
@@ -38,10 +64,24 @@ def preprocessing(text):
     # Filter out stop words
     filtered_token = [token for token in cleared_token if token not in stopwords.words('english')]
 
-    # Stem tokens
-    stemmer = PorterStemmer()
-    processed_token = [stemmer.stem(token) for token in filtered_token]
+    # CASE 1: input for tfidf
+    if lda == False:
+        # Stem tokens
+        stemmer = PorterStemmer()
+        processed_token = [stemmer.stem(token) for token in filtered_token]
+    # CASE 2: input for lda -> lemmatize, entf white spaces,
+    else:
+        lemmatizer = WordNetLemmatizer()
+        processed_token = [lemmatizer.lemmatize(token) for token in filtered_token]
+        print(processed_token)
+
+        # compute bigrams and replace white space between two words with an underscore
+        bigrams = compute_bigrams(processed_token)
+        processed_token += [bigram.replace(" ", "_") for bigram in bigrams]
+
+    #processed_token = [item for sublist in processed_token for item in sublist]  # Flatten the list
     return processed_token
+
 
 
 # Calculate the frequency of the words over the whole corpus
